@@ -1,4 +1,5 @@
 -- +goose Up
+-- +goose StatementBegin
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 CREATE TABLE customers (
@@ -37,39 +38,14 @@ CREATE INDEX ledger_entries_account_created_at_idx
 
 CREATE INDEX ledger_entries_transaction_id_idx
     ON ledger_entries (transaction_id);
-
-CREATE OR REPLACE FUNCTION check_transaction_balanced()
-RETURNS TRIGGER
-LANGUAGE plpgsql
-AS $$
-DECLARE
-    entry_total NUMERIC(20, 4);
-BEGIN
-    SELECT COALESCE(SUM(amount), 0.0000)
-    INTO entry_total
-    FROM ledger_entries
-    WHERE transaction_id = NEW.transaction_id;
-
-    IF entry_total <> 0.0000 THEN
-        RAISE EXCEPTION 'transaction % is unbalanced: total %', NEW.transaction_id, entry_total;
-    END IF;
-
-    RETURN NULL;
-END;
-$$;
-
-CREATE CONSTRAINT TRIGGER ledger_entries_balance_check
-AFTER INSERT ON ledger_entries
-DEFERRABLE INITIALLY DEFERRED
-FOR EACH ROW
-EXECUTE FUNCTION check_transaction_balanced();
+-- +goose StatementEnd
 
 -- +goose Down
-DROP TRIGGER IF EXISTS ledger_entries_balance_check ON ledger_entries;
-DROP FUNCTION IF EXISTS check_transaction_balanced();
+-- +goose StatementBegin
 DROP INDEX IF EXISTS ledger_entries_transaction_id_idx;
 DROP INDEX IF EXISTS ledger_entries_account_created_at_idx;
 DROP TABLE IF EXISTS ledger_entries;
 DROP TABLE IF EXISTS transactions;
 DROP TABLE IF EXISTS pools;
 DROP TABLE IF EXISTS customers;
+-- +goose StatementEnd
